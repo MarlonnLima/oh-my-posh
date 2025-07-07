@@ -114,28 +114,27 @@ type Renderer struct {
 	italic                 font.Face
 	bold                   font.Face
 	regular                font.Face
-	defaultForegroundColor *RGB
+	backgroundColor        *RGB
 	ansiSequenceRegexMap   map[string]string
 	foregroundColor        *RGB
-	backgroundColor        *RGB
 	defaultBackgroundColor *RGB
-	Path                   string
-	AnsiString             string
-	Author                 string
-	shadowBaseColor        string
-	style                  string
-	BgColor                string
-	shadowOffsetX          float64
-	padding                float64
-	margin                 float64
-	factor                 float64
-	shadowOffsetY          float64
-	rows                   int
-	lineSpacing            float64
-	RPromptOffset          int
-	CursorPadding          int
-	columns                int
-	shadowRadius           uint8
+	defaultForegroundColor *RGB
+	Settings
+	Path            string
+	AnsiString      string
+	shadowBaseColor string
+	style           string
+	shadowOffsetX   float64
+	margin          float64
+	factor          float64
+	shadowOffsetY   float64
+	rows            int
+	lineSpacing     float64
+	RPromptOffset   int
+	CursorPadding   int
+	columns         int
+	padding         float64
+	shadowRadius    uint8
 }
 
 func (ir *Renderer) Init(env runtime.Environment) error {
@@ -165,6 +164,13 @@ func (ir *Renderer) Init(env runtime.Environment) error {
 	ir.shadowOffsetY = ir.factor * 16
 
 	ir.lineSpacing = 1.2
+
+	// Set background color from settings if provided, otherwise use default
+	if ir.Settings.BackgroundColor != "" {
+		ir.BackgroundColor = ir.Settings.BackgroundColor
+	} else {
+		ir.BackgroundColor = "#151515" // Default dark background
+	}
 
 	ir.ansiSequenceRegexMap = map[string]string{
 		invertedColor:       `^(?P<STR>(\x1b\[38;2;(?P<BG>(\d+;?){3});49m){1}(\x1b\[7m))`,
@@ -499,7 +505,7 @@ func (ir *Renderer) SavePNG() error {
 	// Draw rounded rectangle with outline and three button to produce the
 	// impression of a window with controls and a content area
 	dc.DrawRoundedRectangle(xOffset, yOffset, width-2*marginX, height-2*marginY, corner)
-	dc.SetHexColor(ir.BgColor)
+	dc.SetHexColor(ir.BackgroundColor)
 	dc.Fill()
 
 	dc.DrawRoundedRectangle(xOffset, yOffset, width-2*marginX, height-2*marginY, corner)
@@ -637,47 +643,101 @@ func (ir *Renderer) shouldPrint() bool {
 
 func (ir *Renderer) setBase16Color(colorStr string) {
 	tempColor := ir.defaultForegroundColor
+
 	colorInt, err := strconv.Atoi(colorStr)
 	if err != nil {
 		ir.foregroundColor = tempColor
+		return
 	}
-	switch colorInt {
-	case 30, 40: // Black
-		tempColor = &RGB{1, 1, 1}
-	case 31, 41: // Red
-		tempColor = &RGB{222, 56, 43}
-	case 32, 42: // Green
-		tempColor = &RGB{57, 181, 74}
-	case 33, 43: // Yellow
-		tempColor = &RGB{255, 199, 6}
-	case 34, 44: // Blue
-		tempColor = &RGB{0, 111, 184}
-	case 35, 45: // Magenta
-		tempColor = &RGB{118, 38, 113}
-	case 36, 46: // Cyan
-		tempColor = &RGB{44, 181, 233}
-	case 37, 47: // White
-		tempColor = &RGB{204, 204, 204}
-	case 90, 100: // Bright Black (Gray)
-		tempColor = &RGB{128, 128, 128}
-	case 91, 101: // Bright Red
-		tempColor = &RGB{255, 0, 0}
-	case 92, 102: // Bright Green
-		tempColor = &RGB{0, 255, 0}
-	case 93, 103: // Bright Yellow
-		tempColor = &RGB{255, 255, 0}
-	case 94, 104: // Bright Blue
-		tempColor = &RGB{0, 0, 255}
-	case 95, 105: // Bright Magenta
-		tempColor = &RGB{255, 0, 255}
-	case 96, 106: // Bright Cyan
-		tempColor = &RGB{101, 194, 205}
-	case 97, 107: // Bright White
-		tempColor = &RGB{255, 255, 255}
+
+	// Check for color override first
+	colorName := colorNameFromCode(colorInt)
+	if rgb, err := ir.Settings.Colors.RGBFromColorName(colorName); err == nil {
+		tempColor = rgb
 	}
+
+	// If no override found, use default colors
+	if tempColor == ir.defaultForegroundColor {
+		switch colorInt {
+		case 30, 40: // Black
+			tempColor = &RGB{1, 1, 1}
+		case 31, 41: // Red
+			tempColor = &RGB{222, 56, 43}
+		case 32, 42: // Green
+			tempColor = &RGB{57, 181, 74}
+		case 33, 43: // Yellow
+			tempColor = &RGB{255, 199, 6}
+		case 34, 44: // Blue
+			tempColor = &RGB{0, 111, 184}
+		case 35, 45: // Magenta
+			tempColor = &RGB{118, 38, 113}
+		case 36, 46: // Cyan
+			tempColor = &RGB{44, 181, 233}
+		case 37, 47: // White
+			tempColor = &RGB{204, 204, 204}
+		case 90, 100: // Bright Black (Gray)
+			tempColor = &RGB{128, 128, 128}
+		case 91, 101: // Bright Red
+			tempColor = &RGB{255, 0, 0}
+		case 92, 102: // Bright Green
+			tempColor = &RGB{0, 255, 0}
+		case 93, 103: // Bright Yellow
+			tempColor = &RGB{255, 255, 0}
+		case 94, 104: // Bright Blue
+			tempColor = &RGB{0, 0, 255}
+		case 95, 105: // Bright Magenta
+			tempColor = &RGB{255, 0, 255}
+		case 96, 106: // Bright Cyan
+			tempColor = &RGB{101, 194, 205}
+		case 97, 107: // Bright White
+			tempColor = &RGB{255, 255, 255}
+		}
+	}
+
 	if colorInt < 40 || (colorInt >= 90 && colorInt < 100) {
 		ir.foregroundColor = tempColor
 		return
 	}
+
 	ir.backgroundColor = tempColor
+}
+
+// colorNameFromCode maps ANSI color codes to color names
+func colorNameFromCode(colorInt int) string {
+	switch colorInt {
+	case 30, 40:
+		return "black"
+	case 31, 41:
+		return "red"
+	case 32, 42:
+		return "green"
+	case 33, 43:
+		return "yellow"
+	case 34, 44:
+		return "blue"
+	case 35, 45:
+		return "magenta"
+	case 36, 46:
+		return "cyan"
+	case 37, 47:
+		return "white"
+	case 90, 100:
+		return "darkGray"
+	case 91, 101:
+		return "lightRed"
+	case 92, 102:
+		return "lightGreen"
+	case 93, 103:
+		return "lightYellow"
+	case 94, 104:
+		return "lightBlue"
+	case 95, 105:
+		return "lightMagenta"
+	case 96, 106:
+		return "lightCyan"
+	case 97, 107:
+		return "lightWhite"
+	default:
+		return ""
+	}
 }
