@@ -99,7 +99,21 @@
         }
       ],
       "type": "prompt"
-    }
+    },
+        {
+      "alignment": "right",
+      "newline": false,
+      "type": "prompt",
+      "segments": [
+        {
+          "type": "dotnet",
+          "style": "accordion",
+          "foreground": "#008DF1",
+          "background": "#1A191F",
+          "template": "<i>  {{ .Full }} </i>"
+        }
+      ]
+    },
   ],
   "final_space": true,
   "version": 3
