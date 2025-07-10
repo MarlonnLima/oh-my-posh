@@ -88,19 +88,6 @@
       "type": "prompt"
     },
     {
-      "alignment": "left",
-      "newline": true,
-      "segments": [
-        {
-          "foreground": "#f1184c",
-          "style": "plain",
-          "template": "\uf0a9 ",
-          "type": "text"
-        }
-      ],
-      "type": "prompt"
-    },
-    {
       "alignment": "right",
       "newline": false,
       "type": "prompt",
@@ -113,6 +100,19 @@
           "template": "<i>  {{ .Full }} </i>"
         }
       ]
+    },
+    {
+      "alignment": "left",
+      "newline": true,
+      "segments": [
+        {
+          "foreground": "#f1184c",
+          "style": "plain",
+          "template": "\uf0a9 ",
+          "type": "text"
+        }
+      ],
+      "type": "prompt"
     }
   ],
   "final_space": true,
